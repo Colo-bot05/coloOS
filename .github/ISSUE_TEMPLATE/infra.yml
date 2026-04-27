@@ -1,0 +1,42 @@
+name: インフラ変更
+description: Terraform / ECS / RDS / ネットワーク等のインフラ変更
+title: "[INFRA] "
+labels: ["type:infra", "status:triage"]
+body:
+  - type: dropdown
+    id: target_env
+    attributes:
+      label: 対象環境
+      multiple: true
+      options: ["local", "stg", "prod"]
+    validations: { required: true }
+  - type: textarea
+    id: change_summary
+    attributes:
+      label: 変更内容
+      description: 何をどう変えるか（Terraform module 名・対応リソース名）
+    validations: { required: true }
+  - type: textarea
+    id: impact
+    attributes:
+      label: 影響範囲
+      description: ダウンタイム見込み・関連サービス・関連 Issue
+    validations: { required: true }
+  - type: textarea
+    id: rollback
+    attributes:
+      label: ロールバック手順
+      description: 失敗時の戻し方を具体的に
+    validations: { required: true }
+  - type: textarea
+    id: validation
+    attributes:
+      label: 検証手順
+      description: 適用後の確認項目（gh api / cli の出力例など）
+    validations: { required: true }
+  - type: dropdown
+    id: priority
+    attributes:
+      label: 優先度
+      options: ["最高", "高", "中", "低"]
+    validations: { required: true }

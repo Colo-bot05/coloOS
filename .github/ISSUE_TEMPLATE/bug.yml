@@ -1,0 +1,53 @@
+name: バグ報告
+description: バグを報告する
+title: "[BUG] "
+labels: ["type:bug", "status:triage"]
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: 概要
+      description: 何が起きているか、1〜2文で
+    validations: { required: true }
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: 再現手順
+      description: 番号付きで具体的に
+      placeholder: |
+        1. ...
+        2. ...
+        3. ...
+    validations: { required: true }
+  - type: textarea
+    id: expected
+    attributes:
+      label: 期待結果
+    validations: { required: true }
+  - type: textarea
+    id: actual
+    attributes:
+      label: 実際の結果
+    validations: { required: true }
+  - type: textarea
+    id: environment
+    attributes:
+      label: 環境
+      description: OS / ブラウザ / コミットハッシュ / Provider など
+      placeholder: |
+        - OS:
+        - ブラウザ:
+        - コミット:
+        - LLM Provider:
+    validations: { required: true }
+  - type: textarea
+    id: logs
+    attributes:
+      label: ログ・スクショ
+      description: 認証情報・PII を含めないこと（CLAUDE.md §12.3）
+  - type: dropdown
+    id: priority
+    attributes:
+      label: 優先度
+      options: ["最高", "高", "中", "低"]
+    validations: { required: true }

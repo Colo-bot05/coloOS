@@ -1,0 +1,28 @@
+name: ドキュメント
+description: README / runbook / 設計書 / コメント等のドキュメント変更
+title: "[DOCS] "
+labels: ["type:docs", "status:triage"]
+body:
+  - type: input
+    id: target
+    attributes:
+      label: 対象ドキュメント
+      placeholder: "例: docs/runbook/branch-protection.md / README.md / CLAUDE.md §〇〇"
+    validations: { required: true }
+  - type: textarea
+    id: change_summary
+    attributes:
+      label: 変更概要
+      description: 追加・修正・削除どれか／なぜ
+    validations: { required: true }
+  - type: textarea
+    id: impact
+    attributes:
+      label: 影響
+      description: 他の Issue / 既存運用への波及
+  - type: dropdown
+    id: priority
+    attributes:
+      label: 優先度
+      options: ["最高", "高", "中", "低"]
+    validations: { required: true }
