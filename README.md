@@ -17,6 +17,8 @@ Colobiz 社員のための社内 AI 共通基盤（Phase 1）。
 | [CLAUDE.md](./CLAUDE.md) | **実装AIの憲法**（最優先・全AI対象） |
 | [AGENTS.md](./AGENTS.md) | エージェント別の運用ルール |
 | [CROSS_REVIEW_TEMPLATES.md](./CROSS_REVIEW_TEMPLATES.md) | クロス AI レビューのテンプレート |
+| [docs/runbook/getting-started.md](./docs/runbook/getting-started.md) | **初回セットアップ手順**（環境構築・git config・upstream tracking） |
+| [docs/runbook/branch-protection.md](./docs/runbook/branch-protection.md) | ブランチ保護ルールと適用手順 |
 | [docs/design/](./docs/design) | 機能別設計書（マスター / Memory / STEP0 / DecisionEngine の docx） |
 | [docs/issues/](./docs/issues) | Issue ドラフト（ST0-1 〜 ST0-6） |
 
@@ -28,15 +30,15 @@ Colobiz 社員のための社内 AI 共通基盤（Phase 1）。
 |---|---|---|
 | Node.js | **22 以上** | Next.js 15 / pnpm が要求 |
 | pnpm | **9.x**（**Corepack 経由**で取得） | 後述の手順を参照 |
-| Python | **3.12.x 必須** | 3.13 / 3.14 では未検証。**ST0-2 着手前に pyenv で 3.12 を導入** し、リポジトリ内で `pyenv local 3.12.x` を設定すること |
-| Poetry | **1.8 以上** | 同上、ST0-2 着手前に導入 |
+| Python | **3.12.x 必須** | 3.13 / 3.14 では未検証。**ST0-4 / ST0-10 等のバックエンド系 Issue 着手前に** pyenv で 3.12 を導入し、リポジトリ内で `pyenv local 3.12.x` を設定 |
+| Poetry | **1.8 以上** | 同上、バックエンド系 Issue 着手前に導入 |
 | Docker / Compose | 最新 | ローカル DB / Redis 起動用（ST0-3 以降） |
 | pre-commit | 最新 | `pip install pre-commit` または `brew install pre-commit` |
-| git | 任意 | identity（user.name / user.email）を Colobiz アカウントで設定済みであること |
+| git | 任意 | identity（user.name / user.email）を Colobiz アカウントで設定済みであること（[getting-started.md §3](./docs/runbook/getting-started.md) 参照） |
 
-> ⚠️ **Python バージョン警告**：`python3 --version` が 3.12 系でない場合、ST0-2 / ST0-10 などのバックエンド系 Issue は実装着手しないでください。CLAUDE.md §2 の固定バージョンを満たさないと環境差で詰まります。pyenv の導入手順は ST0-2 で整備します。
+> ⚠️ **Python バージョン警告**：`python3 --version` が 3.12 系でない場合、ST0-4 / ST0-10 などのバックエンド系 Issue は実装着手しないでください。CLAUDE.md §2 の固定バージョンを満たさないと環境差で詰まります。
 
-## 初期セットアップ
+## 初期セットアップ（短縮版）
 
 ```bash
 # 1. Corepack を有効化し、リポジトリ固定バージョンの pnpm を取得
@@ -50,7 +52,9 @@ pnpm install
 pre-commit install
 ```
 
-`apps/web` / `apps/api` のサーバ起動・DB マイグレーション等は ST0-9 / ST0-10 の実装後に本書へ追記される（現時点では空骨格のみ）。
+`apps/web` / `apps/api` のサーバ起動・DB マイグレーション等は ST0-9 / ST0-10 の実装後に追記される（現時点では空骨格のみ）。
+
+> **初回セットアップで困ったら** [docs/runbook/getting-started.md](./docs/runbook/getting-started.md) を読んでください。git identity の設定、共有ブランチの upstream tracking、よくある詰まりを網羅しています。
 
 ## ディレクトリ構成
 
@@ -67,12 +71,13 @@ coloOS/
 │   └─ docker/     ← ST0-3 〜
 ├─ .github/
 │   ├─ workflows/  GitHub Actions（CI/CD・AIレビュー）
-│   └─ ISSUE_TEMPLATE/
+│   ├─ ISSUE_TEMPLATE/
+│   └─ PULL_REQUEST_TEMPLATE.md
 ├─ docs/
 │   ├─ design/     機能別設計書（docx）
 │   ├─ issues/     Issue ドラフト
-│   └─ runbook/    運用手順書
-├─ scripts/        開発補助スクリプト
+│   └─ runbook/    運用手順書（branch-protection / getting-started 等）
+├─ scripts/        開発補助スクリプト（setup-labels.sh 等）
 ├─ CLAUDE.md       実装AI憲法
 ├─ AGENTS.md       エージェント別運用ルール
 ├─ CROSS_REVIEW_TEMPLATES.md  クロスAIレビューテンプレ
@@ -89,6 +94,40 @@ Issue 作成 → feature/* ブランチ（staging から派生） → 実装＋�
 ```
 
 詳細は [CLAUDE.md §5・§6](./CLAUDE.md) を参照。
+
+## ラベル運用
+
+GitHub Issue / PR には**標準ラベル**（`type:*` / `status:*` / `priority:*` / `step:*` / `area:*` / `agent:*` / `needs:*`）を付ける運用です。標準ラベル一覧と作成スクリプトは [scripts/setup-labels.sh](./scripts/setup-labels.sh) にあります。
+
+```bash
+# リポジトリにラベルを一括作成（既存ラベルは色・説明を上書き更新）
+bash scripts/setup-labels.sh
+
+# 確認
+gh label list --repo Colo-bot05/coloOS --limit 100
+```
+
+| カテゴリ | 例 | 用途 |
+|---|---|---|
+| `type:*` | `type:feature` / `type:bug` / `type:infra` / `type:docs` / `type:refactor` / `type:hotfix` | Issue / PR の種別 |
+| `status:*` | `status:triage` / `status:ready` / `status:in-progress` / `status:blocked` / `status:review` | 進捗状態 |
+| `priority:*` | `priority:highest` / `priority:high` / `priority:medium` / `priority:low` | 優先度 |
+| `step:*` | `step:0` / `step:1` / `step:2` | Phase 1 STEP の対応 |
+| `area:*` | `area:web` / `area:api` / `area:llm` / `area:auth` / `area:infra` / `area:ci-cd` / `area:memory` | 影響領域 |
+| `agent:*` | `agent:autorun` | 自動実装エージェント対象（Phase 2 以降） |
+| `needs:*` | `needs:design` / `needs:human` | 追加判断・追加成果物が必要 |
+
+ラベルの追加・変更は [scripts/setup-labels.sh](./scripts/setup-labels.sh) を編集して PR を立ててください。
+
+## ブランチ保護
+
+`main` / `staging` / `release/stg` / `release/prod` の 4 ブランチに、**Required PR review = 1 / force push 禁止 / deletions 禁止 / enforce_admins=true** を適用しています。詳細・適用手順・変更履歴は [docs/runbook/branch-protection.md](./docs/runbook/branch-protection.md) を参照。
+
+## ブランチ保全（CLAUDE.md §12.1 再掲）
+
+- **マージ後も feature ブランチを削除しない**（local も remote も）
+- リポジトリ設定 `Automatically delete head branches` は **OFF** を維持。ON にする変更は受け付けない
+- ブランチ保護の `Allow deletions` は **OFF** で固定
 
 ## 主要な禁止事項（抜粋）
 

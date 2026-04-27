@@ -1,0 +1,54 @@
+name: 機能追加・改善
+description: 新機能・機能改善のIssueを起票する
+title: "[FEATURE] "
+labels: ["type:feature", "status:triage"]
+body:
+  - type: textarea
+    id: background
+    attributes:
+      label: 背景（なぜやるか）
+      description: なぜこの機能が必要か。誰がどう困っているか
+    validations: { required: true }
+  - type: textarea
+    id: goal
+    attributes:
+      label: 目的
+      description: この Issue が完了したら何が達成されるか
+    validations: { required: true }
+  - type: textarea
+    id: dod
+    attributes:
+      label: 受け入れ条件（Definition of Done）
+      description: チェックリスト形式で
+      placeholder: |
+        - [ ] ...
+        - [ ] ...
+    validations: { required: true }
+  - type: textarea
+    id: implementation
+    attributes:
+      label: 想定実装内容（概要レベル）
+      description: 主要なファイル/モジュール、APIエンドポイント、DB変更など
+    validations: { required: true }
+  - type: textarea
+    id: tests
+    attributes:
+      label: 想定テスト（概要レベル）
+      description: 単体・結合・E2E・受け入れの観点
+    validations: { required: true }
+  - type: textarea
+    id: links
+    attributes:
+      label: 関連リンク
+      description: 設計書・過去Issue・Slackスレッドなど
+  - type: dropdown
+    id: priority
+    attributes:
+      label: 優先度
+      options: ["最高", "高", "中", "低"]
+    validations: { required: true }
+  - type: input
+    id: deadline
+    attributes:
+      label: 期限（任意）
+      placeholder: "YYYY-MM-DD"
