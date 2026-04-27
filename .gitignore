@@ -1,0 +1,35 @@
+# Node / pnpm
+node_modules/
+.pnpm-store/
+.next/
+dist/
+build/
+coverage/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Env
+.env
+.env.local
+.env.*.local
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+
+# IDE / OS
+.DS_Store
+.vscode/*
+!.vscode/settings.example.json
+.idea/
+
+# Misc
+*.log

@@ -1,0 +1,16 @@
+{
+  "name": "coloos",
+  "version": "0.0.0",
+  "private": true,
+  "packageManager": "pnpm@9.15.9",
+  "engines": {
+    "node": ">=22",
+    "pnpm": ">=9"
+  },
+  "scripts": {
+    "lint": "echo 'Lint placeholder — implemented in ST0-9/ST0-22'",
+    "format": "echo 'Format placeholder'",
+    "test": "echo 'Test placeholder'",
+    "gen:api-types": "echo 'Type generation placeholder — implemented in ST0-21'"
+  }
+}
