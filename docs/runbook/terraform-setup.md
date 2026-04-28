@@ -226,20 +226,35 @@ PR 時の利便性のために `pull_request` を Trust Policy に追加する�
 
 ## GitHub Actions Role の暫定運用について（重要）
 
-現在の `coloos-gha-deploy-{env}` Role には `ReadOnlyAccess` ポリシーのみアタッチされています。
+現在の `coloos-gha-deploy-{env}` Role には以下の権限のみアタッチされています：
+
+1. **`ReadOnlyAccess`** 管理ポリシー（attached managed policy）
+2. **`tflock-state-lock-rw`** インラインポリシー（ST0-3.1 で追加）
+   - 許可 Action: `dynamodb:GetItem` / `dynamodb:PutItem` / `dynamodb:DeleteItem`
+   - 対象 Resource: `coloos-tflock` テーブル **1 つのみ**
+
 これは Phase 1 の terraform plan 専用の **暫定** Role です。
 
-- ✅ plan / fmt / validate に必要な読み取り権限のみ
-- ❌ apply に必要な書き込み権限は付いていない
+### なぜ tflock 専用 R/W が必要か
+
+`ReadOnlyAccess` は `dynamodb:GetItem` は許可しますが、`dynamodb:PutItem` / `DeleteItem` は許可しません。一方、`terraform plan`（および apply）は実行前に S3 backend の state lock を取得するため、DynamoDB の `coloos-tflock` テーブルに **PutItem でロックレコードを書き込む**必要があります（plan 完了時に DeleteItem で解放）。
+
+ReadOnlyAccess 単体では plan 自体が `Error: Error acquiring the state lock` で失敗するため、`coloos-tflock` 1 リソースに限定した最小書き込み権限を `aws_iam_role_policy.tflock` インラインポリシーで追加しています。
+
+### 何ができて、何ができないか
+
+- ✅ plan / fmt / validate に必要な読み取り権限
+- ✅ `coloos-tflock` テーブルでの state lock 取得・解放（GetItem / PutItem / DeleteItem の 3 種、対象は coloos-tflock 1 つのみ）
+- ❌ apply に必要な汎用書き込み権限（`s3:Put*` / `ec2:Modify*` / `iam:Create*` / `dynamodb:*` on 他テーブル等）は付いていない
 - ❌ deploy（ECS 更新等）には使えない
 
-apply 用 Role や deploy 用 Role は、後続 Issue「ST0-33: GitHub Actions / IaC 権限分離」で
-最小権限として別途設計します。
+apply 用 Role や deploy 用 Role は、後続 Issue「**ST0-33: GitHub Actions / IaC 権限分離**」で最小権限として別途設計します。
 
 **禁止事項**：
 
-- 本 Role に書き込み権限（`s3:Put*` / `ec2:Modify*` / `ecs:Update*` 等）を追加して deploy role として使い回さない
+- 本 Role に**書き込み権限**を追加して deploy role として使い回さない（`s3:Put*` / `ec2:Modify*` / `ecs:Update*` 等の追加禁止）
 - `AdministratorAccess` 等の強権限を本 Role にアタッチしない
+- **`tflock-state-lock-rw` policy の対象を広げない**（`coloos-tflock` 以外への拡張、`dynamodb:*` への Action 拡張は禁止）
 - `repo:*` 等の広い Trust Policy への変更も禁止（CLAUDE.md §12.5 に準ずる。`var.protected_branches` を広げない）
 
 ## 10. トラブルシューティング

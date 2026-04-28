@@ -16,6 +16,10 @@ locals {
   )
 }
 
+# tflock inline policy で参照する account_id / region を取得（ハードコード回避、ST0-3.1）。
+data "aws_caller_identity" "current" {}
+data "aws_region" "current" {}
+
 resource "aws_iam_openid_connect_provider" "github" {
   count = var.create_oidc_provider ? 1 : 0
 
@@ -76,6 +80,30 @@ resource "aws_iam_role" "deploy" {
 resource "aws_iam_role_policy_attachment" "readonly" {
   role       = aws_iam_role.deploy.name
   policy_arn = "arn:aws:iam::aws:policy/ReadOnlyAccess"
+}
+
+# State lock テーブル R/W の最小権限（ST0-3.1）。
+# ReadOnlyAccess は dynamodb:GetItem は許可するが PutItem / DeleteItem は許可しない。
+# Terraform plan は state lock 取得時に PutItem を、解放時に DeleteItem を呼ぶため、
+# このテーブル 1 つに限定して 3 アクションのみ許可する。
+# 対象を coloos-tflock テーブルに厳密に限定（他の DynamoDB リソースには影響なし）。
+# これを広げる変更（他テーブル / "*" / 他 Action 追加）は CLAUDE.md / AGENTS.md 規約により禁止。
+resource "aws_iam_role_policy" "tflock" {
+  name = "tflock-state-lock-rw"
+  role = aws_iam_role.deploy.name
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Action = [
+        "dynamodb:GetItem",
+        "dynamodb:PutItem",
+        "dynamodb:DeleteItem",
+      ]
+      Resource = "arn:aws:dynamodb:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:table/coloos-tflock"
+    }]
+  })
 }
 
 # Role ARN を SSM Parameter Store に保存。CI / 他モジュールが参照可能。
