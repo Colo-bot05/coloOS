@@ -24,6 +24,8 @@ __pycache__/
 *.tfstate
 *.tfstate.*
 *.tfplan
+# tfvars は実値が入るのでコミットしない（*.tfvars.example のみコミット）
+*.tfvars
 
 # IDE / OS
 .DS_Store
