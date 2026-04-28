@@ -1,0 +1,157 @@
+name: terraform-ci
+
+# 設計方針（F-009 / GPT クロスレビュー対応）：
+# - PR トリガーでは AWS OIDC AssumeRole を **使わない**（pull_request の OIDC sub は protected branch
+#   ref ではないため、現 Trust Policy では弾かれる）。代わりに backend=false + validate + fmt の
+#   static validation のみを実行する。
+# - 実 plan（real plan against S3 backend）は protected branch（main / staging / release/stg /
+#   release/prod）への push、または workflow_dispatch でのみ実行。これらの context での OIDC sub は
+#   `repo:...:ref:refs/heads/<protected-branch>` 形になり、Trust Policy にマッチする。
+# - feature/* PR から AWS にアクセスしたいケースが今後出たら、ST0-33（IAM 権限分離）で
+#   plan-only Role を別設計する。
+
+on:
+  pull_request:
+    paths:
+      - "infra/terraform/**"
+      - ".github/workflows/terraform-ci.yml"
+  push:
+    branches:
+      - main
+      - staging
+      - release/stg
+      - release/prod
+    paths:
+      - "infra/terraform/**"
+      - ".github/workflows/terraform-ci.yml"
+  workflow_dispatch:
+
+# Job 単位で必要な permissions のみ付与（最小権限）。
+permissions:
+  contents: read
+
+jobs:
+  # =========================================================================
+  # validate（PR 時）— AWS 非接触の static validation のみ
+  # =========================================================================
+  validate:
+    name: validate (static, no AWS)
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.9.x
+          terraform_wrapper: true
+
+      - name: terraform fmt -check -recursive
+        id: fmt
+        run: terraform fmt -check -recursive infra/terraform
+        continue-on-error: true
+
+      - name: bootstrap init/validate (backend=false)
+        id: bootstrap
+        run: |
+          terraform -chdir=infra/terraform/bootstrap init -backend=false -input=false
+          terraform -chdir=infra/terraform/bootstrap validate
+        continue-on-error: true
+
+      - name: envs/stg init/validate (backend=false)
+        id: stg
+        run: |
+          terraform -chdir=infra/terraform/envs/stg init -backend=false -input=false
+          terraform -chdir=infra/terraform/envs/stg validate
+        continue-on-error: true
+
+      - name: envs/prod init/validate (backend=false)
+        id: prod
+        run: |
+          terraform -chdir=infra/terraform/envs/prod init -backend=false -input=false
+          terraform -chdir=infra/terraform/envs/prod validate
+        continue-on-error: true
+
+      - name: Post static validation summary to PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        env:
+          FMT_OUTCOME: ${{ steps.fmt.outcome }}
+          BOOTSTRAP_OUTCOME: ${{ steps.bootstrap.outcome }}
+          STG_OUTCOME: ${{ steps.stg.outcome }}
+          PROD_OUTCOME: ${{ steps.prod.outcome }}
+        with:
+          script: |
+            const body = [
+              '### Terraform static validation result',
+              '',
+              '> このジョブは **AWS OIDC AssumeRole を使わず**、`-backend=false` で構文チェックのみ実行します（F-009 / GPT クロスレビュー対応）。',
+              '> real plan は protected branch（main / staging / release/stg / release/prod）への push、または workflow_dispatch で別ジョブが実行します。',
+              '',
+              '| step | result |',
+              '|---|---|',
+              `| terraform fmt -check -recursive | \`${process.env.FMT_OUTCOME}\` |`,
+              `| bootstrap init/validate | \`${process.env.BOOTSTRAP_OUTCOME}\` |`,
+              `| envs/stg init/validate | \`${process.env.STG_OUTCOME}\` |`,
+              `| envs/prod init/validate | \`${process.env.PROD_OUTCOME}\` |`,
+              '',
+              '失敗があればリンク先の workflow ログを確認してください。',
+            ].join('\n');
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body,
+            });
+
+      - name: Fail if any static check failed
+        if: steps.fmt.outcome == 'failure' || steps.bootstrap.outcome == 'failure' || steps.stg.outcome == 'failure' || steps.prod.outcome == 'failure'
+        run: |
+          echo "fmt=${{ steps.fmt.outcome }} bootstrap=${{ steps.bootstrap.outcome }} stg=${{ steps.stg.outcome }} prod=${{ steps.prod.outcome }}"
+          exit 1
+
+  # =========================================================================
+  # plan（push to protected branch / workflow_dispatch）— AWS OIDC で real plan
+  # =========================================================================
+  plan:
+    name: plan (real, AWS OIDC)
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        env: [stg]
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.9.x
+          terraform_wrapper: true
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/coloos-gha-deploy-${{ matrix.env }}
+          aws-region: ap-northeast-1
+
+      - name: terraform init -reconfigure
+        run: terraform -chdir=infra/terraform/envs/${{ matrix.env }} init -reconfigure -input=false
+
+      - name: terraform plan
+        id: plan
+        run: terraform -chdir=infra/terraform/envs/${{ matrix.env }} plan -no-color -input=false
+
+      - name: Plan status
+        if: steps.plan.outcome == 'failure'
+        run: exit 1

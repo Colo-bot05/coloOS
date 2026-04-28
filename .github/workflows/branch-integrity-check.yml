@@ -1,0 +1,20 @@
+name: branch-integrity-check
+
+on:
+  schedule:
+    - cron: "0 0 * * *"
+  workflow_dispatch:
+
+jobs:
+  placeholder:
+    runs-on: ubuntu-latest
+    steps:
+      - name: TODO
+        run: |
+          echo "TODO: ST0-30 / GitHub 整合性監視 Issue で実装予定"
+          echo "実装内容（予定）："
+          echo "- Snapshot SHA of main, staging, release/stg, release/prod"
+          echo "- Compare with previous run's snapshot (S3 or artifact)"
+          echo "- Detect non-fast-forward changes / branch deletions"
+          echo "- Notify Slack on anomalies"
+          exit 0
