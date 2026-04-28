@@ -1,0 +1,5 @@
+# コピーして terraform.tfvars にしてから値を埋める（terraform.tfvars は .gitignore 対象）。
+# 通常はこの2変数の default 値（variables.tf 参照）で十分なため、tfvars は作らなくてよい。
+
+# region = "ap-northeast-1"
+# env    = "stg"
