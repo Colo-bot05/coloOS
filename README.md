@@ -19,6 +19,7 @@ Colobiz 社員のための社内 AI 共通基盤（Phase 1）。
 | [CROSS_REVIEW_TEMPLATES.md](./CROSS_REVIEW_TEMPLATES.md) | クロス AI レビューのテンプレート |
 | [docs/runbook/getting-started.md](./docs/runbook/getting-started.md) | **初回セットアップ手順**（環境構築・git config・upstream tracking） |
 | [docs/runbook/branch-protection.md](./docs/runbook/branch-protection.md) | ブランチ保護ルールと適用手順 |
+| [docs/runbook/terraform-setup.md](./docs/runbook/terraform-setup.md) | Terraform / インフラ運用（bootstrap・state・OIDC・トラブルシュート） |
 | [docs/design/](./docs/design) | 機能別設計書（マスター / Memory / STEP0 / DecisionEngine の docx） |
 | [docs/issues/](./docs/issues) | Issue ドラフト（ST0-1 〜 ST0-6） |
 
@@ -121,13 +122,38 @@ gh label list --repo Colo-bot05/coloOS --limit 100
 
 ## ブランチ保護
 
-`main` / `staging` / `release/stg` / `release/prod` の 4 ブランチに、**Required PR review = 1 / force push 禁止 / deletions 禁止 / enforce_admins=true** を適用しています。詳細・適用手順・変更履歴は [docs/runbook/branch-protection.md](./docs/runbook/branch-protection.md) を参照。
+`main` / `staging` / `release/stg` / `release/prod` の 4 ブランチに、**Required PR review = 1 / force push 禁止 / deletions 禁止 / enforce_admins=false（Phase 1 暫定）** を適用しています。詳細・適用手順・変更履歴は [docs/runbook/branch-protection.md](./docs/runbook/branch-protection.md) を参照。
 
 ## ブランチ保全（CLAUDE.md §12.1 再掲）
 
 - **マージ後も feature ブランチを削除しない**（local も remote も）
 - リポジトリ設定 `Automatically delete head branches` は **OFF** を維持。ON にする変更は受け付けない
 - ブランチ保護の `Allow deletions` は **OFF** で固定
+
+## Terraform / インフラ運用
+
+AWS インフラはすべて Terraform で管理（CLAUDE.md §7.4）。**Terraform バージョンは 1.9.x で固定**（`.terraform-version` で tfenv が読む）。
+
+```bash
+# 初回 bootstrap（state バケット・ロック作成、ST0-3 で1度だけ実行）
+cd infra/terraform/bootstrap
+terraform init
+terraform workspace new stg && terraform workspace select stg
+terraform apply -var env=stg
+
+# 通常運用（plan → 人間レビュー → apply）
+cd infra/terraform/envs/stg
+terraform init
+terraform plan
+terraform apply
+```
+
+詳細・トラブルシュートは [docs/runbook/terraform-setup.md](./docs/runbook/terraform-setup.md) を参照。
+
+- AWS Provider: `~> 5.0` / TLS Provider: `~> 4.0`（OIDC 用）
+- State: S3 バケット `coloos-tfstate-{env}` + DynamoDB ロック `coloos-tflock`（env 共有）
+- GitHub Actions OIDC: PR 時に `.github/workflows/terraform-ci.yml` が plan を自動実行・PR コメント投稿（**apply は人間判断**）
+- 必須 GitHub Secret: `AWS_ACCOUNT_ID`（`gh secret set AWS_ACCOUNT_ID -b "<アカウントID>"`）
 
 ## 主要な禁止事項（抜粋）
 
